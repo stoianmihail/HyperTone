@@ -1,0 +1,101 @@
+NUMBER_FFT = 2048
+HOP_LENGTH = 512
+NUMBER_MELS = 128
+
+def debug(curr, b, e):
+  for x in curr[b:e]:
+    for elem in x:
+      print(elem, end=',')
+    print('')
+  pass
+
+def plot_lms(lms_, sr_):
+  plt.figure(figsize=(30, 10))
+  librosa.display.specshow(lms_, 
+                          x_axis="time",
+                          y_axis="mel", 
+                          sr=sr_)
+  plt.colorbar(format="%+2.f")
+  plt.show()
+  pass
+
+def analyze_audio(filename):
+  n_fft_ = 256
+  scale, sr = librosa.load(filename)
+  #X = librosa.stft(scale, max_freq=2048, n_fft=n_fft_)
+  #X = librosa.amplitude_to_db(abs(X))
+  #freqs = librosa.fft_frequencies(sr=sr,n_fft=n_fft_)
+  #print(len(freqs))
+  #plt.figure(figsize=(14, 5))
+  #librosa.display.specshow(Xdb, sr=sr, x_axis='time', y_axis='hz')
+
+  fmin = librosa.midi_to_hz(36) # C2
+  fmax = librosa.midi_to_hz(84) # C6 (not used)
+
+  # 2 * (84 - 36)- to also cover intermediate notes between the semitones
+  # TODO: put 24 bins per octave
+  orig_X = librosa.feature.chroma_cqt(scale, sr=sr, fmin=fmin, bins_per_octave=12)
+  orig_logX = librosa.amplitude_to_db(abs(X))
+  logX=np.transpose(orig_logX).copy()
+
+  logX[logX < 0] = 0
+  logX = logX[~np.all(logX < DB_EPS, axis=1)]
+  scaler = MinMaxScaler()
+  logX = scaler.fit_transform(logX)
+  
+  print(logX.shape)
+  
+  #orig_chroma = librosa.feature.chroma_stft(scale, sr=sr, n_chroma=48)
+  #print(orig_chroma.shape)
+  #print(chroma.T[100:150])
+  plt.figure(figsize=(15, 5))
+  librosa.display.specshow(logX.T, sr=sr, x_axis='time', y_axis='cqt_note', fmin=fmin, cmap='coolwarm')
+  plt.colorbar(format='%+2.0f dB')
+  plt.show()
+  
+  #chroma=np.transpose(orig_chroma).copy()
+
+  #mel_spectrogram = librosa.feature.melspectrogram(scale, sr=sr, n_mels=NUMBER_MELS)
+  #orig_lms = librosa.power_to_db(mel_spectrogram)
+  #lms = np.transpose(orig_lms).copy()
+  #print(orig_lms.shape)
+  #scaler = MinMaxScaler()
+
+  # Filter
+  #lms[lms < 0] = 0
+  print("before")
+  #debug(lms,50,100)
+  #lms = lms[~np.all(lms < DB_EPS, axis=1)]
+  print("after")
+  #debug(lms,50,100)
+  # Scale
+  #for index in range(len(lms)):
+  #  min = lms[index].min()
+  #  max = lms[index].max()
+  #  assert max > min + EPS
+  #  lms[index] = (lms[index] - min) / (max - min)
+  
+  # Check what `lms` looks like (audio-wise), after doing this cleaning
+  
+  #lms = scaler.fit_transform(lms)
+  print("after scale")
+  #debug(lms,50,100)
+
+  print('simple')
+  #debug(lms,0,100)
+  print("diff")
+  #lms_diff = np.diff(lms, axis=0)
+
+  freqs = librosa.cqt_frequencies(n_bins=logX.shape[1], fmin=fmin)
+  print("size=" + str(len(freqs)))
+  for freq in freqs:
+    print(freq)
+
+  # Maybe also rescale the diff?
+  #debug(lms_diff, 50, 100)
+  #for index in range(len(logX)):
+
+
+  mel_max = np.argmax(logX, axis=1)
+  diff_mel_max = np.argmax(np.diff(logX, axis=0), axis=1)
+  return sr, logX, mel_max,diff_mel_max#orig_lms, lms, lms_diff, mel_max

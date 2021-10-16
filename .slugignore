@@ -1,0 +1,6 @@
+*.ipynb
+Utrenia_glas_1_Anastasimatar_Victor_Ojog/
+__pycache__/
+recordings/
+samples/
+*.png

@@ -5,3 +5,4 @@ numpy==1.19.2
 scipy
 librosa
 gunicorn
+pandas

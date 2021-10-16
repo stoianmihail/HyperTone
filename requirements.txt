@@ -1,6 +1,6 @@
-tensorflow==2.6.0
+tensorflow-cpu==2.6.0
 keras==2.6.0
 flask
-numpy
+numpy==1.19.2
 scipy
 librosa

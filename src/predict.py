@@ -9,8 +9,8 @@ class HyperTone:
   def __init__(self, model_path_):
     self.model = keras.models.load_model(model_path_)
   
-  def predict(self, filepath_, seq_len_=kSequenceLength):
-    ret = solve_audio(filepath_)
+  def predict(self, filepath_, seq_len_=kSequenceLength, shouldSkip=True):
+    ret = solve_audio(filepath_, shouldSkip=True)
     x = np.asarray(ret[1])
     x = x[x != 0]
 

@@ -56,7 +56,7 @@ def normalize_diffs(bins):
     pitch_diff.append(diff)
   return pitch_diff
 
-def solve_audio(filepath_, tone_=0):
+def solve_audio(filepath_, tone_=0, shouldSkip=False):
   print(f"filepath={filepath_}")
   y_, sr_ = librosa.load(filepath_)
   f0_, voiced_flag_, voiced_probs_ = librosa.pyin(y_, fmin=fmin, fmax=fmax)
@@ -75,7 +75,7 @@ def solve_audio(filepath_, tone_=0):
   print(f"samples_per_second={samples_per_second_}, window_length={window_length_}")
 
   # Filter
-  num_skips_ = int(samples_per_second_ * 5)
+  num_skips_ = int(samples_per_second_ * 5) if shouldSkip else 0
   yhat_ = savgol_filter(f0_[num_skips_:], window_length_, 1)
 
   # And determine the bins

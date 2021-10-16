@@ -1,5 +1,6 @@
 import math
 import librosa
+import numpy as np
 from scipy.signal import savgol_filter
 
 # Number of bins per octave (specific for byzatine music)
@@ -19,6 +20,10 @@ def find_bin(f):
 # Formula: 2**(i/`kBinsPerOctave`) * fmin
 # Source: https://en.wikipedia.org/wiki/Constant-Q_transform
   return int(round(math.log2(f / fmin) * kBinsPerOctave)) if not math.isnan(f) else f
+
+def pad_array(A, size):
+  t = size - len(A)
+  return np.pad(A, pad_width=(0, t), mode='constant')
 
 def normalize_diffs(bins):
   pitch_diff = []
@@ -72,10 +77,11 @@ def solve_audio(filepath_, tone_=0, shouldSkip=False):
   if window_length_ % 2 == 0:
     window_length_ += 1
 
-  print(f"samples_per_second={samples_per_second_}, window_length={window_length_}")
+  print(f"num_seconds={num_seconds_}, samples_per_second={samples_per_second_}, window_length={window_length_}")
 
   # Filter
   num_skips_ = int(samples_per_second_ * 5) if shouldSkip else 0
+  print(len(f0_[num_skips_:]))
   yhat_ = savgol_filter(f0_[num_skips_:], window_length_, 1)
 
   # And determine the bins

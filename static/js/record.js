@@ -8,6 +8,7 @@ const recordedAudioContainer = document.getElementById('recordedAudioContainer')
 const saveAudioButton = document.getElementById('saveButton');
 const discardAudioButton = document.getElementById('discardButton');
 const recordingsContainer = document.getElementById('recordings');
+const toneResult = document.getElementById('tone');
 
 let chunks = []; // will be used later to record audio
 let mediaRecorder = null; // will be used later to record audio
@@ -117,22 +118,22 @@ function createRecordingElement(file) {
   return recordingElement;
 }
 
-// fetch recordings
-function fetchRecordings() {
-  fetch('/recordings')
-    .then((response) => response.json())
-    .then((response) => {
-      if (response.success && response.files) {
-        recordingsContainer.innerHTML = ''; // remove all children
-        response.files.forEach((file) => {
-          const recordingElement = createRecordingElement(file);
-          // console.log(file, recordingElement);
-          recordingsContainer.appendChild(recordingElement);
-        });
-      }
-    })
-    .catch((err) => console.error(err));
-}
+// // fetch recordings
+// function fetchRecordings() {
+//   fetch('/recordings')
+//     .then((response) => response.json())
+//     .then((response) => {
+//       if (response.success && response.files) {
+//         recordingsContainer.innerHTML = ''; // remove all children
+//         response.files.forEach((file) => {
+//           const recordingElement = createRecordingElement(file);
+//           // console.log(file, recordingElement);
+//           recordingsContainer.appendChild(recordingElement);
+//         });
+//       }
+//     })
+//     .catch((err) => console.error(err));
+// }
 
 function saveRecording() {
   const formData = new FormData();
@@ -141,17 +142,17 @@ function saveRecording() {
     method: 'POST',
     body: formData,
   })
-    .then((response) => response.json())
-    .then(() => {
-      alert('Your recording is saved');
-      resetRecording();
-      fetchRecordings();
-    })
-    .catch((err) => {
-      console.error(err);
-      alert('An error occurred, please try again later');
-      resetRecording();
-    });
+  .then((response) => response.json())
+  .then((data) => {
+    console.log(data);
+    tone.innerHTML = data['tone'];
+    alert('Your recording is saved');
+    resetRecording();
+  }).catch((err) => {
+    console.error(err);
+    alert('An error occurred, please try again later');
+    resetRecording();
+  });
 }
 
 saveAudioButton.addEventListener('click', saveRecording);
@@ -165,4 +166,4 @@ function discardRecording() {
 
 discardAudioButton.addEventListener('click', discardRecording);
 
-fetchRecordings();
+// fetchRecordings();

@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow.keras as keras
-from src.audio_processing import solve_audio
+from src.audio_processing import pad_array, solve_audio
 
 # The sequence length
 kSequenceLength = 128
@@ -15,7 +15,7 @@ class HyperTone:
     x = x[x != 0]
 
     if len(x) < seq_len_:
-      x = padarray(x, seq_len_)
+      x = pad_array(x, seq_len_)
     num_sequences = len(x) - seq_len_ + 1
     seeds = []
     for index in range(num_sequences):
@@ -27,6 +27,7 @@ class HyperTone:
       y.append(1 + self.sample(elem))
     #a = np.array(y)
     #counts = np.bincount(np.array(y))
+    print(y)
     return np.argmax(np.bincount(np.array(y)))
     #return y
     #   # make a prediction

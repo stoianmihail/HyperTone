@@ -2,18 +2,18 @@ import os
 import time
 import flask
 import pandas as pd
+from src.predict import HyperTone
+
+ht = HyperTone(f'model/model-1634386470.hdf5')
+
+# Initialise the Flask app
+app = flask.Flask(__name__, template_folder='templates', static_folder='static')
 
 # Only trigger SSLify if the app is running on Heroku,
 # acc. https://stackoverflow.com/questions/15116312/redirect-http-to-https-on-flaskheroku/22137608.
 from flask_sslify import SSLify
 if 'DYNO' in os.environ:
   sslify = SSLify(app)
-
-from src.predict import HyperTone
-ht = HyperTone(f'model/model-1634386470.hdf5')
-
-# Initialise the Flask app
-app = flask.Flask(__name__, template_folder='templates', static_folder='static')
 
 @app.route('/record', methods=['GET', 'POST'])
 def record():

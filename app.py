@@ -10,7 +10,9 @@ from pydub import AudioSegment
 # Init firebase.
 cred = None
 if 'DYNO' in os.environ:
+  print(os.environ.get('GOOGLE_CREDENTIALS'))
   json_data = json.loads(os.environ.get('GOOGLE_CREDENTIALS'))
+  print(json_data)
   json_data['private_key'] = json_data['private_key'].replace('\\n', '\n')
   cred = credentials.Certificate(json_data)
 else:

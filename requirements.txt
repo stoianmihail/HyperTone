@@ -1,5 +1,6 @@
 tensorflow-cpu==2.6.0
 keras==2.6.0
+firebase_admin
 flask
 Flask-SSLify
 numpy==1.19.2

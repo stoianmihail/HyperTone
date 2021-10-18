@@ -1,169 +1,350 @@
 /* eslint-disable no-console */
 /* eslint-disable no-alert */
 /* eslint-disable no-restricted-globals */
-// initialize elements we'll use
-const recordButton = document.getElementById('recordButton');
-const recordButtonImage = recordButton.firstElementChild;
-const recordedAudioContainer = document.getElementById('recordedAudioContainer');
-const saveAudioButton = document.getElementById('saveButton');
-const discardAudioButton = document.getElementById('discardButton');
-const recordingsContainer = document.getElementById('recordings');
-const toneResult = document.getElementById('tone');
 
-let chunks = []; // will be used later to record audio
-let mediaRecorder = null; // will be used later to record audio
-let audioBlob = null; // the blob that will hold the recorded audio
+//webkitURL is deprecated but nevertheless
+URL = window.URL || window.webkitURL;
 
-function mediaRecorderDataAvailable(e) {
-  chunks.push(e.data);
+var gumStream; 						//stream from getUserMedia()
+var rec; 							//Recorder.js object
+var input; 							//MediaStreamAudioSourceNode we'll be recording
+
+// shim for AudioContext when it's not avb. 
+var AudioContext = window.AudioContext || window.webkitAudioContext;
+var audioContext; //audio context to help us record
+
+var recordButton = document.getElementById("recordButton");
+var stopButton = document.getElementById("stopButton");
+var pauseButton = document.getElementById("pauseButton");
+
+//add events to those 2 buttons
+recordButton.addEventListener("click", startRecording);
+stopButton.addEventListener("click", stopRecording);
+pauseButton.addEventListener("click", pauseRecording);
+
+function startRecording() {
+	console.log("recordButton clicked");
+
+	/*
+		Simple constraints object, for more advanced audio features see
+		https://addpipe.com/blog/audio-constraints-getusermedia/
+	*/
+    
+    var constraints = { audio: true, video: false }
+
+ 	/*
+    	Disable the record button until we get a success or fail from getUserMedia() 
+	*/
+
+	recordButton.disabled = true;
+	stopButton.disabled = false;
+	pauseButton.disabled = false
+
+	/*
+    	We're using the standard promise based getUserMedia() 
+    	https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+	*/
+
+	navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+		console.log("getUserMedia() success, stream created, initializing Recorder.js ...");
+
+		/*
+			create an audio context after getUserMedia is called
+			sampleRate might change after getUserMedia is called, like it does on macOS when recording through AirPods
+			the sampleRate defaults to the one set in your OS for your playback device
+
+		*/
+		audioContext = new AudioContext();
+
+		//update the format 
+		document.getElementById("formats").innerHTML="Format: 1 channel pcm @ "+audioContext.sampleRate/1000+"kHz"
+
+		/*  assign to gumStream for later use  */
+		gumStream = stream;
+		
+		/* use the stream */
+		input = audioContext.createMediaStreamSource(stream);
+
+		/* 
+			Create the Recorder object and configure to record mono sound (1 channel)
+			Recording 2 channels  will double the file size
+		*/
+		rec = new Recorder(input,{numChannels:1})
+
+		//start the recording process
+		rec.record()
+
+		console.log("Recording started");
+
+	}).catch(function(err) {
+	  	//enable the record button if getUserMedia() fails
+    	recordButton.disabled = false;
+    	stopButton.disabled = true;
+    	pauseButton.disabled = true
+	});
 }
 
-function mediaRecorderStop() {
-  // check if there are any previous recordings and remove them
-  if (recordedAudioContainer.firstElementChild.tagName === 'AUDIO') {
-    recordedAudioContainer.firstElementChild.remove();
-  }
-  const audioElm = document.createElement('audio');
-  audioElm.setAttribute('controls', ''); // add controls
-  audioBlob = new Blob(chunks, { type: 'audio/mp3' });
-  const audioURL = window.URL.createObjectURL(audioBlob);
-  audioElm.src = audioURL;
-  // show audio
-  recordedAudioContainer.insertBefore(audioElm, recordedAudioContainer.firstElementChild);
-  recordedAudioContainer.classList.add('d-flex');
-  recordedAudioContainer.classList.remove('d-none');
-  // reset to default
-  mediaRecorder = null;
-  chunks = [];
+function pauseRecording(){
+	console.log("pauseButton clicked rec.recording=",rec.recording );
+	if (rec.recording){
+		//pause
+		rec.stop();
+		pauseButton.innerHTML="Resume";
+	}else{
+		//resume
+		rec.record()
+		pauseButton.innerHTML="Pause";
+
+	}
 }
 
-function record() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('Your browser does not support recording!');
-    return;
-  }
+function stopRecording() {
+	console.log("stopButton clicked");
 
-  // browser supports getUserMedia
-  // change image in button
-  recordButtonImage.src = `/static/images/${mediaRecorder && mediaRecorder.state === 'recording' ? 'microphone' : 'stop'}.png`;
-  if (!mediaRecorder) {
-    // start recording
-    navigator.mediaDevices.getUserMedia({
-      audio: true,
+	//disable the stop button, enable the record too allow for new recordings
+	stopButton.disabled = true;
+	recordButton.disabled = false;
+	pauseButton.disabled = true;
+
+	//reset button just in case the recording is stopped while paused
+	pauseButton.innerHTML="Pause";
+	
+	//tell the recorder to stop the recording
+	rec.stop();
+
+	//stop microphone access
+	gumStream.getAudioTracks()[0].stop();
+
+	//create the wav blob and pass it on to createDownloadLink
+	rec.exportWAV(createDownloadLink);
+}
+
+function createDownloadLink(blob) {
+	
+	var url = URL.createObjectURL(blob);
+	var au = document.createElement('audio');
+	var li = document.createElement('li');
+	var link = document.createElement('a');
+
+	//name of .wav file to use during upload and download (without extendion)
+	var filename = new Date().toISOString();
+
+	//add controls to the <audio> element
+	au.controls = true;
+	au.src = url;
+
+	//save to disk link
+	link.href = url;
+	link.download = filename+".wav"; //download forces the browser to donwload the file using the  filename
+	link.innerHTML = "Save to disk";
+
+	//add the new audio element to li
+	li.appendChild(au);
+	
+	//add the filename to the li
+	li.appendChild(document.createTextNode(filename+".wav "))
+
+	//add the save to disk link to li
+	li.appendChild(link);
+	
+  //upload link
+  var upload = document.createElement('a');
+  upload.href="#";
+  upload.innerHTML = "Upload";
+
+  upload.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const formData = new FormData();
+    formData.append('audio', blob, 'recording.mp3');
+    fetch('/record', {
+      method: 'POST',
+      body: formData,
     })
-      .then((stream) => {
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.start();
-        mediaRecorder.ondataavailable = mediaRecorderDataAvailable;
-        mediaRecorder.onstop = mediaRecorderStop;
-      })
-      .catch((err) => {
-        alert(`The following error occurred: ${err}`);
-        // change image in button
-        recordButtonImage.src = '/static/images/microphone.png';
-      });
-  } else {
-    // stop recording
-    mediaRecorder.stop();
-  }
+    .then((response) => response.json())
+    .then((data) => {
+      console.log(data);
+      document.getElementById('tone').innerHTML = data['tone'];
+      alert('Your recording is saved');
+    }).catch((err) => {
+      console.error(err);
+      alert('An error occurred, please try again later');
+    });
+  });
+
+	li.appendChild(document.createTextNode (" "))//add a space in between
+	li.appendChild(upload)//add the upload link to li
+
+	//add the li element to the ol
+	recordingsList.appendChild(li);
 }
 
-recordButton.addEventListener('click', record);
 
-function resetRecording() {
-  if (recordedAudioContainer.firstElementChild.tagName === 'AUDIO') {
-    recordedAudioContainer.firstElementChild.remove();
-    // hide recordedAudioContainer
-    recordedAudioContainer.classList.add('d-none');
-    recordedAudioContainer.classList.remove('d-flex');
-  }
-  audioBlob = null;
-}
 
-function playRecording(e) {
-  let button = e.target;
-  if (button.tagName === 'IMG') {
-    // get parent button
-    button = button.parentElement;
-  }
-  const audio = button.previousElementSibling;
-  if (audio && audio.tagName === 'AUDIO') {
-    if (audio.paused) {
-      audio.play();
-      button.firstElementChild.src = '/static/images/pause.png';
-    } else {
-      audio.pause();
-      button.firstElementChild.src = '/static/images/play.png';
-    }
-  }
-}
+// // initialize elements we'll use
+// const recordButton = document.getElementById('recordButton');
+// const recordButtonImage = recordButton.firstElementChild;
+// const recordedAudioContainer = document.getElementById('recordedAudioContainer');
+// const saveAudioButton = document.getElementById('saveButton');
+// const discardAudioButton = document.getElementById('discardButton');
+// const recordingsContainer = document.getElementById('recordings');
+// const toneResult = document.getElementById('tone');
 
-function createRecordingElement(file) {
-  const recordingElement = document.createElement('div');
-  recordingElement.classList.add('col-lg-2', 'col', 'recording', 'mt-3');
-  const audio = document.createElement('audio');
-  audio.src = file;
-  audio.onended = (e) => {
-    e.target.nextElementSibling.firstElementChild.src = '/static/images/play.png';
-  };
-  recordingElement.appendChild(audio);
-  const playButton = document.createElement('button');
-  playButton.classList.add('play-button', 'btn', 'border', 'shadow-sm', 'text-center', 'd-block', 'mx-auto');
-  const playImage = document.createElement('img');
-  playImage.src = '/static/images/play.png';
-  playImage.classList.add('img-fluid');
-  playButton.appendChild(playImage);
-  playButton.addEventListener('click', playRecording);
-  recordingElement.appendChild(playButton);
-  return recordingElement;
-}
+// let chunks = []; // will be used later to record audio
+// let mediaRecorder = null; // will be used later to record audio
+// let audioBlob = null; // the blob that will hold the recorded audio
 
-// // fetch recordings
-// function fetchRecordings() {
-//   fetch('/recordings')
-//     .then((response) => response.json())
-//     .then((response) => {
-//       if (response.success && response.files) {
-//         recordingsContainer.innerHTML = ''; // remove all children
-//         response.files.forEach((file) => {
-//           const recordingElement = createRecordingElement(file);
-//           // console.log(file, recordingElement);
-//           recordingsContainer.appendChild(recordingElement);
-//         });
-//       }
-//     })
-//     .catch((err) => console.error(err));
+// function mediaRecorderDataAvailable(e) {
+//   chunks.push(e.data);
 // }
 
-function saveRecording() {
-  const formData = new FormData();
-  formData.append('audio', audioBlob, 'recording.mp3');
-  fetch('/record', {
-    method: 'POST',
-    body: formData,
-  })
-  .then((response) => response.json())
-  .then((data) => {
-    console.log(data);
-    tone.innerHTML = data['tone'];
-    alert('Your recording is saved');
-    resetRecording();
-  }).catch((err) => {
-    console.error(err);
-    alert('An error occurred, please try again later');
-    resetRecording();
-  });
-}
+// function mediaRecorderStop() {
+//   // check if there are any previous recordings and remove them
+//   if (recordedAudioContainer.firstElementChild.tagName === 'AUDIO') {
+//     recordedAudioContainer.firstElementChild.remove();
+//   }
+//   const audioElm = document.createElement('audio');
+//   audioElm.setAttribute('controls', ''); // add controls
+//   audioBlob = new Blob(chunks, { type: 'audio/mp3' });
+//   const audioURL = window.URL.createObjectURL(audioBlob);
+//   audioElm.src = audioURL;
+//   // show audio
+//   recordedAudioContainer.insertBefore(audioElm, recordedAudioContainer.firstElementChild);
+//   recordedAudioContainer.classList.add('d-flex');
+//   recordedAudioContainer.classList.remove('d-none');
+//   // reset to default
+//   mediaRecorder = null;
+//   chunks = [];
+// }
 
-saveAudioButton.addEventListener('click', saveRecording);
+// function record() {
+//   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+//     alert('Your browser does not support recording!');
+//     return;
+//   }
 
-function discardRecording() {
-  if (confirm('Are you sure you want to discard the recording?')) {
-    // discard audio just recorded
-    resetRecording();
-  }
-}
+//   // browser supports getUserMedia
+//   // change image in button
+//   recordButtonImage.src = `/static/images/${mediaRecorder && mediaRecorder.state === 'recording' ? 'microphone' : 'stop'}.png`;
+//   if (!mediaRecorder) {
+//     // start recording
+//     navigator.mediaDevices.getUserMedia({
+//       audio: true,
+//     })
+//       .then((stream) => {
+//         mediaRecorder = new MediaRecorder(stream);
+//         mediaRecorder.start();
+//         mediaRecorder.ondataavailable = mediaRecorderDataAvailable;
+//         mediaRecorder.onstop = mediaRecorderStop;
+//       })
+//       .catch((err) => {
+//         alert(`The following error occurred: ${err}`);
+//         // change image in button
+//         recordButtonImage.src = '/static/images/microphone.png';
+//       });
+//   } else {
+//     // stop recording
+//     mediaRecorder.stop();
+//   }
+// }
 
-discardAudioButton.addEventListener('click', discardRecording);
+// recordButton.addEventListener('click', record);
 
-// fetchRecordings();
+// function resetRecording() {
+//   if (recordedAudioContainer.firstElementChild.tagName === 'AUDIO') {
+//     recordedAudioContainer.firstElementChild.remove();
+//     // hide recordedAudioContainer
+//     recordedAudioContainer.classList.add('d-none');
+//     recordedAudioContainer.classList.remove('d-flex');
+//   }
+//   audioBlob = null;
+// }
+
+// function playRecording(e) {
+//   let button = e.target;
+//   if (button.tagName === 'IMG') {
+//     // get parent button
+//     button = button.parentElement;
+//   }
+//   const audio = button.previousElementSibling;
+//   if (audio && audio.tagName === 'AUDIO') {
+//     if (audio.paused) {
+//       audio.play();
+//       button.firstElementChild.src = '/static/images/pause.png';
+//     } else {
+//       audio.pause();
+//       button.firstElementChild.src = '/static/images/play.png';
+//     }
+//   }
+// }
+
+// function createRecordingElement(file) {
+//   const recordingElement = document.createElement('div');
+//   recordingElement.classList.add('col-lg-2', 'col', 'recording', 'mt-3');
+//   const audio = document.createElement('audio');
+//   audio.src = file;
+//   audio.onended = (e) => {
+//     e.target.nextElementSibling.firstElementChild.src = '/static/images/play.png';
+//   };
+//   recordingElement.appendChild(audio);
+//   const playButton = document.createElement('button');
+//   playButton.classList.add('play-button', 'btn', 'border', 'shadow-sm', 'text-center', 'd-block', 'mx-auto');
+//   const playImage = document.createElement('img');
+//   playImage.src = '/static/images/play.png';
+//   playImage.classList.add('img-fluid');
+//   playButton.appendChild(playImage);
+//   playButton.addEventListener('click', playRecording);
+//   recordingElement.appendChild(playButton);
+//   return recordingElement;
+// }
+
+// // // fetch recordings
+// // function fetchRecordings() {
+// //   fetch('/recordings')
+// //     .then((response) => response.json())
+// //     .then((response) => {
+// //       if (response.success && response.files) {
+// //         recordingsContainer.innerHTML = ''; // remove all children
+// //         response.files.forEach((file) => {
+// //           const recordingElement = createRecordingElement(file);
+// //           // console.log(file, recordingElement);
+// //           recordingsContainer.appendChild(recordingElement);
+// //         });
+// //       }
+// //     })
+// //     .catch((err) => console.error(err));
+// // }
+
+// function saveRecording() {
+//   const formData = new FormData();
+//   formData.append('audio', audioBlob, 'recording.mp3');
+//   fetch('/record', {
+//     method: 'POST',
+//     body: formData,
+//   })
+//   .then((response) => response.json())
+//   .then((data) => {
+//     console.log(data);
+//     tone.innerHTML = data['tone'];
+//     alert('Your recording is saved');
+//     resetRecording();
+//   }).catch((err) => {
+//     console.error(err);
+//     alert('An error occurred, please try again later');
+//     resetRecording();
+//   });
+// }
+
+// saveAudioButton.addEventListener('click', saveRecording);
+
+// function discardRecording() {
+//   if (confirm('Are you sure you want to discard the recording?')) {
+//     // discard audio just recorded
+//     resetRecording();
+//   }
+// }
+
+// discardAudioButton.addEventListener('click', discardRecording);
+
+// // fetchRecordings();

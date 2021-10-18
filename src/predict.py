@@ -14,9 +14,14 @@ class HyperTone:
     x = np.asarray(ret[1])
     x = x[x != 0]
 
+    print(f"len(x)={len(x)}")
+
     if len(x) < seq_len_:
       x = pad_array(x, seq_len_)
     num_sequences = len(x) - seq_len_ + 1
+    
+    print(f"num_sequences={num_sequences}")
+    
     seeds = []
     for index in range(num_sequences):
       seeds.append(np.asarray(x[index : index + seq_len_]).reshape((seq_len_, 1)))

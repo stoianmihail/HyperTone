@@ -7,25 +7,26 @@ import firebase_admin
 from firebase_admin import db, credentials, storage
 from pydub import AudioSegment
 
-# Init firebase.
+# Fetch credentials.
 cred = None
 if 'DYNO' in os.environ:
-  print(os.environ.get('GOOGLE_CREDENTIALS'))
   json_data = json.loads(os.environ.get('GOOGLE_CREDENTIALS'))
-  print(json_data)
   json_data['private_key'] = json_data['private_key'].replace('\\n', '\n')
   cred = credentials.Certificate(json_data)
 else:
   cred = credentials.Certificate('private-key.json')
-  firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://hyper-tone-default-rtdb.firebaseio.com',
-    'storageBucket': 'hyper-tone.appspot.com',
-  })
 
+# And initialize the app.
+firebase_admin.initialize_app(cred, {
+  'databaseURL': 'https://hyper-tone-default-rtdb.firebaseio.com',
+  'storageBucket': 'hyper-tone.appspot.com',
+})
+
+# Load the model.
 from src.predict import HyperTone
 ht = HyperTone(f'model/model-1634386470.hdf5')
 
-# Initialise the Flask app
+# Initialize the Flask app.
 app = flask.Flask(__name__, template_folder='templates', static_folder='static')
 
 # The app must use https for recording to work!

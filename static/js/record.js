@@ -1,9 +1,12 @@
-//webkitURL is deprecated but nevertheless
+// TODO: WebkitURL is deprecated.
 URL = window.URL || window.webkitURL;
 
-var gumStream; 						//stream from getUserMedia()
-var rec; 							//Recorder.js object
-var input; 							//MediaStreamAudioSourceNode we'll be recording
+// Stream from getUserMedia()
+var gumStream;
+// Recorder.js object
+var rec = null;
+// MediaStreamAudioSourceNode we'll be recording
+var input;
 
 // shim for AudioContext when it's not avb. 
 var AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -17,6 +20,57 @@ var pauseButton = document.getElementById("pauseButton");
 recordButton.addEventListener("click", startRecording);
 stopButton.addEventListener("click", stopRecording);
 pauseButton.addEventListener("click", pauseRecording);
+
+var minutesLabel = document.getElementById("recording-minutes");
+var secondsLabel = document.getElementById("recording-seconds");
+var start_ = null;
+var pause_ = null;
+var total_pause_ = 0;
+
+function enable() {
+  console.log("Recording started!");
+
+  // Reset the parameters.
+  start_ = + new Date(), total_pause_ = 0;
+
+  // Nyquist frequency.
+  setInterval(setTime, 500);
+
+  // And start recording.
+  rec.record();
+}
+
+function pause() {
+  pause_ = + new Date();
+  rec.stop();
+}
+
+function resume() {
+  total_pause_ += (+ new Date() - pause_);
+  rec.record();
+}
+
+function stop() {
+  rec.stop();
+}
+
+function setTime() {
+  // Skip.
+  if ((!rec) || (!rec.recording)) return;
+
+  let totalSeconds = parseInt(((+ new Date() - start_) - total_pause_) / 1000);
+  secondsLabel.innerHTML = pad(totalSeconds % 60);
+  minutesLabel.innerHTML = pad(parseInt(totalSeconds / 60));
+}
+
+function pad(val) {
+  var valString = val + "";
+  if (valString.length < 2) {
+    return "0" + valString;
+  } else {
+    return valString;
+  }
+}
 
 function startRecording() {
 	console.log("recordButton clicked");
@@ -67,13 +121,10 @@ function startRecording() {
 		*/
 		rec = new Recorder(input,{numChannels:1})
 
-		//start the recording process
-		rec.record()
-
-		console.log("Recording started");
-
+		// Enable recording.
+    enable();
 	}).catch(function(err) {
-	  	//enable the record button if getUserMedia() fails
+	  	// Enable the record button if getUserMedia() fails
     	recordButton.disabled = false;
     	stopButton.disabled = true;
     	pauseButton.disabled = true
@@ -81,42 +132,38 @@ function startRecording() {
 }
 
 function pauseRecording(){
-	console.log("pauseButton clicked rec.recording=",rec.recording );
-	if (rec.recording){
-		//pause
-		rec.stop();
-		pauseButton.innerHTML="Resume";
-	}else{
-		//resume
-		rec.record()
-		pauseButton.innerHTML="Pause";
-
+  console.log("pauseButton clicked rec.recording=",rec.recording );
+	if (rec.recording) {
+    pause();
+		pauseButton.innerHTML = `Resume`;
+	} else {
+    resume();
+		pauseButton.innerHTML = `Pause`;
 	}
 }
 
 function stopRecording() {
 	console.log("stopButton clicked");
 
-	//disable the stop button, enable the record too allow for new recordings
+	// Disable the stop button, enable the record too allow for new recordings
 	stopButton.disabled = true;
 	recordButton.disabled = false;
 	pauseButton.disabled = true;
 
-	//reset button just in case the recording is stopped while paused
-	pauseButton.innerHTML="Pause";
+	// Reset button just in case the recording is stopped while paused
+	pauseButton.innerHTML = "Pause";
 	
-	//tell the recorder to stop the recording
-	rec.stop();
+	// Tell the recorder to stop the recording
+  stop();
 
-	//stop microphone access
+	// Stop microphone access
 	gumStream.getAudioTracks()[0].stop();
 
-	//create the wav blob and pass it on to createDownloadLink
+	// Create the wav blob and pass it on to createDownloadLink
 	rec.exportWAV(createDownloadLink);
 }
 
 function createDownloadLink(blob) {
-	
 	var url = URL.createObjectURL(blob);
 	var au = document.createElement('audio');
 	var li = document.createElement('li');
@@ -142,25 +189,34 @@ function createDownloadLink(blob) {
 
 	//add the save to disk link to li
 	li.appendChild(link);
+  
+  //upload link
+  var upload = document.createElement('a');
+  upload.href="#";
+  upload.innerHTML = "Upload";
+
+  upload.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const formData = new FormData();
+    formData.append('audio', blob, 'recording.mp3');
+    fetch('/record', {
+      method: 'POST',
+      body: formData,
+    })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log(data);
+      document.getElementById('tone').innerHTML = data['tone'];
+      alert('Your recording is saved');
+    }).catch((err) => {
+      console.error(err);
+      alert('An error occurred, please try again later');
+    });
+  });
 	
-	//upload link
-	var upload = document.createElement('a');
-	upload.href="#";
-	upload.innerHTML = "Upload";
-	/*
-  upload.addEventListener("click", function(event){
-		  var xhr=new XMLHttpRequest();
-		  xhr.onload=function(e) {
-		      if(this.readyState === 4) {
-		          console.log("Server returned: ",e.target.responseText);
-		      }
-		  };
-		  var fd=new FormData();
-		  fd.append("audio_data",blob, filename);
-		  xhr.open("POST","upload.php",true);
-		  xhr.send(fd);
-	})*/
-	li.appendChild(document.createTextNode (" "))//add a space in between
+  li.appendChild(document.createTextNode (" "))//add a space in between
 	li.appendChild(upload)//add the upload link to li
 
 	//add the li element to the ol

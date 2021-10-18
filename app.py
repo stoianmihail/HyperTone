@@ -9,6 +9,7 @@ ht = HyperTone(f'model/model-1634386470.hdf5')
 # Initialise the Flask app
 app = flask.Flask(__name__, template_folder='templates', static_folder='static')
 
+# The app must use https for recording to work!
 # Only trigger SSLify if the app is running on Heroku,
 # acc. https://stackoverflow.com/questions/15116312/redirect-http-to-https-on-flaskheroku/22137608.
 from flask_sslify import SSLify

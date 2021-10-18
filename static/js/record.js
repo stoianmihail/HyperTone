@@ -214,8 +214,12 @@ function createDownloadLink(blob) {
 
   upload.addEventListener("click", e => {
     e.preventDefault();
-    e.stopPropagation();
+		e.stopPropagation();
 
+		// Reset the tone.
+		// TODO: save it to the right of the saved recording!
+		document.getElementById('tone').innerHTML = ``;
+      
     const formData = new FormData();
     formData.append('audio', blob, 'recording');
     fetch('/record', {
@@ -226,10 +230,9 @@ function createDownloadLink(blob) {
     .then((data) => {
       console.log(data);
       document.getElementById('tone').innerHTML = data['tone'];
-      alert('Your recording is saved');
     }).catch((err) => {
       console.error(err);
-      alert('An error occurred, please try again later');
+      alert('An error occurred, please try again later!');
     });
   });
 	

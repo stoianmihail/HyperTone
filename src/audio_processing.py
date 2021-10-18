@@ -2,6 +2,8 @@ import math
 import librosa
 import numpy as np
 from scipy.signal import savgol_filter
+import soundfile as sf
+import io
 
 # Number of bins per octave (specific for byzatine music)
 kBinsPerOctave = 24
@@ -61,9 +63,13 @@ def normalize_diffs(bins):
     pitch_diff.append(diff)
   return pitch_diff
 
-def solve_audio(filepath_, tone_=0, shouldSkip=False):
-  print(f"filepath={filepath_}")
-  y_, sr_ = librosa.load(filepath_)
+def solve_audio(obj, file_type_, tone_=0, shouldSkip=False):
+  y_, sr_ = librosa.load(obj) if file_type_ == 'file' else sf.read(obj)
+
+
+  print(y_)
+  print(sr_)
+
   f0_, voiced_flag_, voiced_probs_ = librosa.pyin(y_, fmin=fmin, fmax=fmax)
 
   # Number of seconds

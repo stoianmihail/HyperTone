@@ -163,29 +163,46 @@ function stopRecording() {
 	rec.exportWAV(createDownloadLink);
 }
 
+async function uploadRecordingToStorage(blob, filename) {
+  return storage.ref('recordings').child(filename).put(blob);
+}
+
 function createDownloadLink(blob) {
+  console.log(blob);
+
 	var url = URL.createObjectURL(blob);
+  console.log(url);
 	var au = document.createElement('audio');
 	var li = document.createElement('li');
 	var link = document.createElement('a');
 
-	//name of .wav file to use during upload and download (without extendion)
-	var filename = new Date().toISOString();
+  // // Get a key for a new invoice.
+  // let newRecordingKey = firebase.database().ref().child('recordings').push().key;
+  // let filename = `recording-${newRecordingKey}`;
 
-	//add controls to the <audio> element
+  // uploadRecordingToStorage()
+
+  // // And update.
+  // let updates = {};
+  // updates['/recordings/' + newRecordingKey] = invoiceData;
+  //  [newInvoiceKey, pdfName, db.ref().update(updates)];
+
+  let filename = 'recording';
+
+	// //add controls to the <audio> element
 	au.controls = true;
 	au.src = url;
 
 	//save to disk link
 	link.href = url;
-	link.download = filename+".wav"; //download forces the browser to donwload the file using the  filename
+	link.download = filename + ".wav"; //download forces the browser to donwload the file using the  filename
 	link.innerHTML = "Save to disk";
 
 	//add the new audio element to li
 	li.appendChild(au);
 	
 	//add the filename to the li
-	li.appendChild(document.createTextNode(filename+".wav "))
+	li.appendChild(document.createTextNode(filename + ".wav "))
 
 	//add the save to disk link to li
 	li.appendChild(link);
@@ -200,7 +217,7 @@ function createDownloadLink(blob) {
     e.stopPropagation();
 
     const formData = new FormData();
-    formData.append('audio', blob, 'recording.mp3');
+    formData.append('audio', blob, 'recording');
     fetch('/record', {
       method: 'POST',
       body: formData,

@@ -2,8 +2,21 @@ import os
 import time
 import flask
 import pandas as pd
-from src.predict import HyperTone
+import firebase_admin
+from firebase_admin import db, credentials, storage
+from pydub import AudioSegment
 
+cred = credentials.Certificate("private-key.json")
+firebase_admin.initialize_app(cred, {
+	'databaseURL': 'https://hyper-tone-default-rtdb.firebaseio.com',
+	'storageBucket': 'hyper-tone.appspot.com',
+})
+
+# Init firebase
+ref = db.reference('recordings')
+storage = storage.bucket()
+
+from src.predict import HyperTone
 ht = HyperTone(f'model/model-1634386470.hdf5')
 
 # Initialise the Flask app
@@ -23,21 +36,35 @@ def record():
     print("GET!")
     return {'success' : True}
   if flask.request.method == 'POST':
+    # Fetch the file.
     file = flask.request.files['audio']
+    
+    # Fetch the IP.
     ip = flask.request.environ.get('HTTP_X_REAL_IP', flask.request.remote_addr)
 
-    print(file.filename)
-    print(ip)
-
+    # Create a directory if we don't have one.
     if not os.path.exists('recordings'):
       os.mkdir('recordings')
-    filepath = os.path.join(app.root_path, 'recordings', f'{ip}-{int(time.time())}-{file.filename}') 
-    file.save(filepath)
 
-    prediction = ht.predict(filepath)
+    # Build the filepath.
+    filename = f'{ip}-{int(time.time())}-{file.filename}'
+    wavFilepath = os.path.join(app.root_path, 'recordings', f'{filename}.wav')
+    mp3Filepath = os.path.join(app.root_path, 'recordings', f'{filename}.mp3')
+    file.save(wavFilepath)
 
+    # Convert to mp3.
+    AudioSegment.from_wav(wavFilepath).export(mp3Filepath, format='mp3')
+
+    # Predict the tone.
+    prediction = ht.predict(mp3Filepath, 'file')
     print(prediction)
+    
+    # TODO: add into DB.
+    # Store the recording.
+    storage.blob(f'recordings/{filename}.mp3').upload_from_filename(mp3Filepath);
 
+    # And return the result.
+    # TODO: return the db key.
     return {'tone' : int(prediction), 'success' : True}
 
 # Set up the main route

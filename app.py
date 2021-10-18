@@ -6,15 +6,18 @@ import firebase_admin
 from firebase_admin import db, credentials, storage
 from pydub import AudioSegment
 
-cred = credentials.Certificate("private-key.json")
-firebase_admin.initialize_app(cred, {
-	'databaseURL': 'https://hyper-tone-default-rtdb.firebaseio.com',
-	'storageBucket': 'hyper-tone.appspot.com',
-})
-
-# Init firebase
-ref = db.reference('recordings')
-storage = storage.bucket()
+# Init firebase.
+cred = None
+if 'DYNO' in os.environ:
+  json_data = json.loads(os.environ.get('GOOGLE_CREDENTIALS'))
+  json_data['private_key'] = json_data['private_key'].replace('\\n', '\n')
+  cred = credentials.Certificate(json_data)
+else:
+  cred = credentials.Certificate('private-key.json')
+  firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://hyper-tone-default-rtdb.firebaseio.com',
+    'storageBucket': 'hyper-tone.appspot.com',
+  })
 
 from src.predict import HyperTone
 ht = HyperTone(f'model/model-1634386470.hdf5')
@@ -61,7 +64,7 @@ def record():
     
     # TODO: add into DB.
     # Store the recording.
-    storage.blob(f'recordings/{filename}.mp3').upload_from_filename(mp3Filepath);
+    storage.bucket().blob(f'recordings/{filename}.mp3').upload_from_filename(mp3Filepath);
 
     # And return the result.
     # TODO: return the db key.
